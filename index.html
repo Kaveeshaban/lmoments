@@ -1,0 +1,1512 @@
+<title>L-Moments River Analysis</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:wght@500;600&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column. Each section opens with a hairline and a small label.
+   Results sit in cards made of labelled metric cells; the C++ source is a scrollable block with line numbers. */
+:root {
+  --bg: #F3F7F8;
+  --surface: #FFFFFF;
+  --surface-2: #E8EFF2;
+  --fg: #0E2430;
+  --muted: #4A6070;
+  --line: #D0DCE2;
+  --accent: #0A6A86;
+  --accent-fg: #FFFFFF;
+  --accent-soft: #DCEDF2;
+  --ok: #1B7443; --ok-bg: #DDF0E5;
+  --warn: #7F5200; --warn-bg: #FAEAC6;
+  --bad: #9E2626; --bad-bg: #F7D9D6;
+  --code-bg: #EDF3F5;
+  --c-com: #4F6B7A; --c-kw: #0A6A86; --c-str: #8A4B00; --c-num: #6A3FA0; --c-pre: #3C6B2A;
+  --f-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --f-body: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B1820; --surface: #112430; --surface-2: #173341; --fg: #E3EEF2; --muted: #9CB3BF; --line: #254150;
+    --accent: #62C6E0; --accent-fg: #062029; --accent-soft: #12323E;
+    --ok: #6FD39A; --ok-bg: #123826; --warn: #F1C76D; --warn-bg: #3B2E11; --bad: #FF9F97; --bad-bg: #401C1C;
+    --code-bg: #0A141B; --c-com: #8AA3B0; --c-kw: #62C6E0; --c-str: #E8B878; --c-num: #B8A6F2; --c-pre: #8FD08A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B1820; --surface: #112430; --surface-2: #173341; --fg: #E3EEF2; --muted: #9CB3BF; --line: #254150;
+  --accent: #62C6E0; --accent-fg: #062029; --accent-soft: #12323E;
+  --ok: #6FD39A; --ok-bg: #123826; --warn: #F1C76D; --warn-bg: #3B2E11; --bad: #FF9F97; --bad-bg: #401C1C;
+  --code-bg: #0A141B; --c-com: #8AA3B0; --c-kw: #62C6E0; --c-str: #E8B878; --c-num: #B8A6F2; --c-pre: #8FD08A;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 1rem/1.6 var(--f-body);
+  padding-block: 2.5rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 58rem; margin-inline: auto; }
+p { margin: 0 0 1rem; max-width: 68ch; }
+a { color: var(--accent); }
+sub, sup { line-height: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.eyebrow { font: 500 0.75rem/1.4 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin: 0 0 0.9rem; }
+h1 { font: 600 clamp(2.2rem, 1rem + 5vw, 3.5rem)/1.06 var(--f-display); letter-spacing: -0.012em; margin: 0 0 1rem; text-wrap: balance; }
+h2 { font: 600 1.75rem/1.2 var(--f-display); margin: 0 0 1rem; text-wrap: balance; }
+h3 { font: 600 1.05rem/1.3 var(--f-body); margin: 0; }
+.lede { font-size: 1.15rem; line-height: 1.55; color: var(--fg); max-width: 60ch; }
+.byline { font-size: 0.9rem; color: var(--muted); margin-bottom: 1.75rem; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem 2rem; margin: 0 0 1.75rem; padding-block: 1.1rem; border-block: 1px solid var(--line); }
+.facts > div { min-width: 0; }
+.facts dt { font: 500 0.72rem/1.4 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.2rem; }
+.facts dd { margin: 0; font-size: 0.95rem; }
+.toc { display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; font-size: 0.92rem; font-weight: 500; }
+.toc a { text-decoration: none; padding-block: 0.15rem; border-bottom: 1px solid transparent; }
+.toc a:hover { border-bottom-color: var(--accent); }
+
+section.block { padding-block: 2.75rem 0.5rem; margin-top: 2.5rem; border-top: 1px solid var(--line); }
+.label { font: 500 0.72rem/1.4 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 1.25rem; margin-bottom: 1.5rem; }
+.two > * { min-width: 0; }
+pre.file { margin: 0; padding: 0.9rem 1rem; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; font: 400 0.82rem/1.55 var(--f-mono); overflow-x: auto; }
+.cap { font-size: 0.82rem; color: var(--muted); margin: 0.4rem 0 0; }
+ul.plain { margin: 0 0 1.25rem; padding-left: 1.2rem; max-width: 68ch; }
+ul.plain li { margin-bottom: 0.3rem; }
+code, .mono { font-family: var(--f-mono); font-size: 0.88em; }
+pre.cmd { margin: 0 0 1rem; padding: 0.8rem 1rem; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; font: 400 0.85rem/1.6 var(--f-mono); overflow-x: auto; max-width: 36rem; }
+
+/* pipeline */
+ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+ol.steps li { counter-increment: step; display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; gap: 0.25rem 1rem; align-items: start; padding-block: 0.95rem; border-bottom: 1px solid var(--line); }
+ol.steps li:first-child { border-top: 1px solid var(--line); }
+ol.steps li::before { content: counter(step); font: 500 0.8rem/2rem var(--f-mono); text-align: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent); }
+ol.steps h3 { margin-bottom: 0.15rem; }
+ol.steps p { margin: 0; font-size: 0.93rem; color: var(--muted); }
+.ref { font: 500 0.75rem/1 var(--f-mono); padding: 0.4rem 0.5rem; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--accent); cursor: pointer; white-space: nowrap; }
+.ref:hover { background: var(--accent-soft); }
+@media (max-width: 34rem) {
+  ol.steps li { grid-template-columns: 2rem minmax(0, 1fr); }
+  ol.steps li .ref { grid-column: 2; justify-self: start; margin-top: 0.4rem; }
+}
+
+/* formulas */
+.formulas { border-top: 1px solid var(--line); margin-bottom: 1.25rem; }
+.f-row { display: grid; grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr) auto; gap: 0.4rem 1.25rem; align-items: center; padding-block: 0.8rem; border-bottom: 1px solid var(--line); }
+.f-name { font-size: 0.85rem; color: var(--muted); }
+.f-expr { font: 400 1.1rem/1.9 var(--f-display); overflow-x: auto; padding-block: 0.1rem; }
+.f-expr i { font-style: italic; }
+.f-expr div + div { margin-top: 0.1rem; }
+.fr { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin-inline: 0.25em; line-height: 1.3; text-align: center; font-size: 0.95em; }
+.fr > span:first-child { border-bottom: 1px solid currentColor; padding-inline: 0.3em; }
+.fr > span:last-child { padding-inline: 0.3em; }
+@media (max-width: 40rem) {
+  .f-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .f-expr { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* table */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 0.65rem 0.85rem; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead th { font: 500 0.72rem/1.3 var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--surface-2); white-space: nowrap; }
+tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+tbody th { font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--f-mono); font-size: 0.85rem; }
+.muted { color: var(--muted); }
+.struct { min-width: 38rem; }
+.struct td:last-child { white-space: nowrap; }
+
+/* calculator */
+.note { font-size: 0.9rem; color: var(--muted); }
+.field label, .field .lab { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem; }
+textarea { width: 100%; min-height: 12rem; padding: 0.75rem 0.85rem; background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; font: 400 0.85rem/1.55 var(--f-mono); resize: vertical; white-space: pre; overflow: auto; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.btn { display: inline-flex; align-items: center; gap: 0.4rem; font: 500 0.85rem/1 var(--f-body); padding: 0.55rem 0.85rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--fg); cursor: pointer; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { position: relative; }
+
+.status { margin: 1.25rem 0 0.75rem; font-size: 0.92rem; }
+.status ul { margin: 0.4rem 0 0; padding-left: 1.2rem; color: var(--warn); }
+.status .err { color: var(--bad); font-weight: 500; }
+.rule-note { font-size: 0.85rem; color: var(--muted); margin: 0.75rem 0 1.25rem; }
+
+.pill { display: inline-block; font: 500 0.72rem/1 var(--f-mono); letter-spacing: 0.06em; padding: 0.3rem 0.5rem; border-radius: 4px; white-space: nowrap; }
+.risk-low { background: var(--ok-bg); color: var(--ok); }
+.risk-moderate { background: var(--warn-bg); color: var(--warn); }
+.risk-high { background: var(--bad-bg); color: var(--bad); }
+
+#cards { display: grid; gap: 1rem; margin-top: 1.25rem; }
+.river { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1.1rem 1.2rem 1.25rem; min-width: 0; }
+.river-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.4rem 1rem; margin-bottom: 0.2rem; }
+.river-head h3 { font-size: 1.1rem; overflow-wrap: anywhere; }
+.river .sub { font-size: 0.85rem; color: var(--muted); margin: 0 0 0.9rem; }
+.strip { margin: 0 0 1.2rem; }
+.strip .track { position: relative; height: 1.6rem; margin-inline: 6px; }
+.strip .track::before { content: ""; position: absolute; left: -6px; right: -6px; top: 50%; height: 1px; background: var(--line); }
+.strip .track i { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--accent); opacity: 0.4; }
+.strip .track b { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--fg); }
+.strip figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.2rem 1rem; font: 400 0.76rem/1.4 var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1.2rem 2rem; }
+.groups > section { min-width: 0; }
+.groups .wide { grid-column: 1 / -1; }
+.groups h4 { font: 500 0.72rem/1.4 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
+.cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.6rem, 1fr)); gap: 0.7rem 0.8rem; }
+.cell { min-width: 0; display: flex; flex-direction: column; }
+.cell .v { margin-top: auto; }
+.cell .k { font-size: 0.8rem; color: var(--muted); line-height: 1.3; }
+.cell .k small { display: block; font-size: 0.7rem; }
+.cell .v { font: 500 0.95rem/1.4 var(--f-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+details.out { margin-top: 1.5rem; }
+details.out summary { cursor: pointer; font-weight: 600; font-size: 0.95rem; padding-block: 0.3rem; }
+pre.report { margin: 0.6rem 0 0; padding: 1rem; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; font: 400 0.76rem/1.5 var(--f-mono); overflow: auto; max-height: 28rem; }
+
+/* source viewer */
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; align-items: center; }
+.chips .btn { font-family: var(--f-mono); font-size: 0.78rem; padding: 0.45rem 0.6rem; }
+.chips .spacer { flex: 1 1 auto; }
+.code { position: relative; max-height: min(72vh, 40rem); overflow: auto; background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; font: 400 0.8rem/1.55 var(--f-mono); }
+.code-inner { display: block; min-width: max-content; padding-block: 0.6rem; }
+.ln { display: block; white-space: pre; padding-right: 1.2rem; }
+.ln::before { content: attr(data-n); display: inline-block; position: sticky; left: 0; width: 3.6em; margin-right: 1em; padding-right: 0.8em; text-align: right; color: var(--c-com); background: var(--code-bg); user-select: none; }
+.ln.flash { animation: flash 2.6s ease-out; }
+@keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .ln.flash { animation: none; background: var(--accent-soft); } }
+.c-com { color: var(--c-com); font-style: italic; }
+.c-kw { color: var(--c-kw); font-weight: 500; }
+.c-str { color: var(--c-str); }
+.c-num { color: var(--c-num); }
+.c-pre { color: var(--c-pre); }
+
+.refs { font-size: 0.9rem; max-width: 68ch; padding-left: 1.2rem; }
+.refs li { margin-bottom: 0.5rem; }
+footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line); font-size: 0.85rem; color: var(--muted); }
+footer p { max-width: 70ch; }
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">L-moments · Pearson type III · C++</p>
+  <h1>L-Moments River Analysis</h1>
+  <p class="lede">A C++ program that fits the Pearson type III distribution to river discharge series by the method of L-moments. This page documents the method and the code, and runs the same calculation in the browser.</p>
+  <p class="byline">Дугганна Ралалаге Кавиша Аширвадани Бандара · РГГМУ, Saint Petersburg · Master's programme 05.04.05 Прикладная гидрометеорология</p>
+  <dl class="facts">
+    <div><dt>Input</dt><dd>Discharge series in m³/s, one column per river or station</dd></div>
+    <div><dt>Estimates</dt><dd>L-moments l<sub>1</sub> to l<sub>4</sub>, ratios t<sub>2</sub> to t<sub>4</sub>, Pearson III shape α, scale β and location γ</dd></div>
+    <div><dt>Output</dt><dd>Console report, text results file and a summary table</dd></div>
+  </dl>
+  <nav class="toc" aria-label="Contents">
+    <a href="#overview">Overview</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="#method">Method</a>
+    <a href="#structure">Program structure</a>
+    <a href="#try-it">Run it here</a>
+    <a href="#source">Source code</a>
+  </nav>
+</header>
+
+<section class="block" id="overview">
+  <h2>Overview</h2>
+  <p>The program reads discharge series for several rivers or gauging stations and describes each series with L-moments. From the L-moment ratios it derives the three parameters of a Pearson type III distribution, reports conventional statistics (mean, standard deviation, C<sub>v</sub>, C<sub>s</sub>) and assigns a simple flood-risk class from the L-coefficient of variation.</p>
+  <p>It needs two plain text files. The names file holds one river and station per line. The data file holds only numbers, one column per river, in the same order as the names.</p>
+  <div class="two">
+    <div>
+      <p class="label">Names file (rivers.txt)</p>
+<pre class="file">P.Sheltozerka - S.Sheltozero
+Lososinka - R.Lososinka - G.Petrozavodsk
+Neglinka - R.Neglinka - G.Petrozavodsk</pre>
+    </div>
+    <div>
+      <p class="label">Data file (data.txt)</p>
+<pre class="file">1.31 6.02 0.72
+1.45 5.06 0.70
+1.05 4.14 0.47</pre>
+    </div>
+  </div>
+  <p class="cap" style="margin-top:-0.75rem; margin-bottom:1.5rem;">Both examples come from the program's own help text. Spaces or tabs separate the columns, and a comma is accepted as the decimal sign.</p>
+  <p class="label">For every river with at least four values the program reports</p>
+  <ul class="plain">
+    <li>L-moments l<sub>1</sub> to l<sub>4</sub> and the ratios t<sub>2</sub> (L-Cv), t<sub>3</sub> (L-skew) and t<sub>4</sub> (L-kurtosis)</li>
+    <li>probability-weighted moments b<sub>0</sub> to b<sub>3</sub></li>
+    <li>Pearson III shape α, scale β and location γ</li>
+    <li>mean, standard deviation, C<sub>v</sub> and C<sub>s</sub></li>
+    <li>a flood-risk class: LOW, MODERATE or HIGH</li>
+  </ul>
+  <p class="label">Build and run</p>
+<pre class="cmd">g++ -O2 -o lmoments lmoments.cpp
+./lmoments</pre>
+  <p>The program then asks for the names file, the data file and a name for the results file. With Microsoft Visual C++, define <code>_USE_MATH_DEFINES</code> before including <code>&lt;cmath&gt;</code> so that <code>M_PI</code> is available.</p>
+</section>
+
+<section class="block" id="how-it-works">
+  <h2>How it works</h2>
+  <p>The program runs in seven steps. The line numbers point into the source listing at the bottom of the page; select one to jump there.</p>
+  <ol class="steps">
+    <li><div><h3>Read the river names</h3><p>One name per line. Carriage returns are removed and blank lines are skipped.</p></div><button class="ref" data-jump="335">L335</button></li>
+    <li><div><h3>Read the discharge data</h3><p>Whitespace-separated columns. Commas are read as decimal points and values of zero or below are dropped. The first line fixes the number of columns.</p></div><button class="ref" data-jump="382">L382</button></li>
+    <li><div><h3>Create one River object per column</h3><p>Columns with fewer than four values are skipped with a warning. Each River keeps a sorted copy of its series, in ascending order.</p></div><button class="ref" data-jump="291">L291</button></li>
+    <li><div><h3>Compute the probability-weighted moments</h3><p>One pass over the sorted series gives b<sub>0</sub> to b<sub>3</sub>.</p></div><button class="ref" data-jump="40">L40</button></li>
+    <li><div><h3>Compute the L-moments and L-moment ratios</h3><p>l<sub>1</sub> to l<sub>4</sub> are linear combinations of the b values. Dividing gives t<sub>2</sub>, t<sub>3</sub> and t<sub>4</sub>.</p></div><button class="ref" data-jump="63">L63</button></li>
+    <li><div><h3>Estimate the Pearson III parameters</h3><p>The shape α comes from a rational approximation in t<sub>3</sub>. Scale β and location γ follow from l<sub>1</sub>, l<sub>2</sub> and α.</p></div><button class="ref" data-jump="72">L72</button></li>
+    <li><div><h3>Report the results</h3><p>Each river is printed to the console, followed by a summary table. The same blocks and a summary table are written to the results file.</p></div><button class="ref" data-jump="557">L557</button></li>
+  </ol>
+</section>
+
+<section class="block" id="method">
+  <h2>Method</h2>
+  <p>The sorted series is x<sub>1</sub> ≤ x<sub>2</sub> ≤ … ≤ x<sub>n</sub>, and sums run over j = 1 … n. The source writes l and t where the formulas use λ and τ.</p>
+  <div class="formulas">
+    <div class="f-row"><div class="f-name">Probability-weighted moments</div><div class="f-expr">
+      <div><i>b</i><sub>0</sub> = <span class="fr"><span>1</span><span><i>n</i></span></span> Σ <i>x<sub>j</sub></i></div>
+      <div><i>b</i><sub>1</sub> = <span class="fr"><span>1</span><span><i>n</i></span></span> Σ <span class="fr"><span><i>j</i> − 1</span><span><i>n</i> − 1</span></span> <i>x<sub>j</sub></i></div>
+      <div><i>b</i><sub>2</sub> = <span class="fr"><span>1</span><span><i>n</i></span></span> Σ <span class="fr"><span>(<i>j</i> − 1)(<i>j</i> − 2)</span><span>(<i>n</i> − 1)(<i>n</i> − 2)</span></span> <i>x<sub>j</sub></i></div>
+      <div><i>b</i><sub>3</sub> = <span class="fr"><span>1</span><span><i>n</i></span></span> Σ <span class="fr"><span>(<i>j</i> − 1)(<i>j</i> − 2)(<i>j</i> − 3)</span><span>(<i>n</i> − 1)(<i>n</i> − 2)(<i>n</i> − 3)</span></span> <i>x<sub>j</sub></i></div>
+    </div><button class="ref" data-jump="58">L58–61</button></div>
+    <div class="f-row"><div class="f-name">L-moments</div><div class="f-expr">
+      <div><i>λ</i><sub>1</sub> = <i>b</i><sub>0</sub></div>
+      <div><i>λ</i><sub>2</sub> = 2<i>b</i><sub>1</sub> − <i>b</i><sub>0</sub></div>
+      <div><i>λ</i><sub>3</sub> = 6<i>b</i><sub>2</sub> − 6<i>b</i><sub>1</sub> + <i>b</i><sub>0</sub></div>
+      <div><i>λ</i><sub>4</sub> = 20<i>b</i><sub>3</sub> − 30<i>b</i><sub>2</sub> + 12<i>b</i><sub>1</sub> − <i>b</i><sub>0</sub></div>
+    </div><button class="ref" data-jump="63">L63–66</button></div>
+    <div class="f-row"><div class="f-name">L-moment ratios</div><div class="f-expr">
+      <div><i>τ</i><sub>2</sub> = <span class="fr"><span><i>λ</i><sub>2</sub></span><span><i>λ</i><sub>1</sub></span></span> (L-Cv), &nbsp; <i>τ</i><sub>3</sub> = <span class="fr"><span><i>λ</i><sub>3</sub></span><span><i>λ</i><sub>2</sub></span></span> (L-skew), &nbsp; <i>τ</i><sub>4</sub> = <span class="fr"><span><i>λ</i><sub>4</sub></span><span><i>λ</i><sub>2</sub></span></span> (L-kurtosis)</div>
+    </div><button class="ref" data-jump="68">L68–70</button></div>
+    <div class="f-row"><div class="f-name">Shape α, for |τ<sub>3</sub>| &lt; 1/3</div><div class="f-expr">
+      <div><i>z</i> = 3π<i>τ</i><sub>3</sub><sup>2</sup></div>
+      <div><i>α</i> = <span class="fr"><span>1 + 0.2906<i>z</i></span><span><i>z</i> + 0.1882<i>z</i><sup>2</sup> + 0.0442<i>z</i><sup>3</sup></span></span></div>
+    </div><button class="ref" data-jump="78">L78–82</button></div>
+    <div class="f-row"><div class="f-name">Shape α, for 1/3 ≤ |τ<sub>3</sub>| &lt; 1</div><div class="f-expr">
+      <div><i>z</i> = 1 − |<i>τ</i><sub>3</sub>|</div>
+      <div><i>α</i> = <span class="fr"><span>0.36067<i>z</i> − 0.59567<i>z</i><sup>2</sup> + 0.25361<i>z</i><sup>3</sup></span><span>1 − 2.78861<i>z</i> + 2.56096<i>z</i><sup>2</sup> − 0.77045<i>z</i><sup>3</sup></span></span></div>
+    </div><button class="ref" data-jump="83">L83–87</button></div>
+    <div class="f-row"><div class="f-name">Limits on α</div><div class="f-expr">
+      <div>|<i>τ</i><sub>3</sub>| &lt; 10<sup>−6</sup> gives <i>α</i> = 1000, and |<i>τ</i><sub>3</sub>| ≥ 1 gives <i>α</i> = 0.01.</div>
+      <div>The result is then clamped to 0.01 ≤ <i>α</i> ≤ 200.</div>
+    </div><button class="ref" data-jump="74">L74–94</button></div>
+    <div class="f-row"><div class="f-name">Scale β</div><div class="f-expr">
+      <div><i>β</i> = <i>λ</i><sub>2</sub> √π <span class="fr"><span>Γ(<i>α</i>)</span><span>Γ(<i>α</i> + ½)</span></span></div>
+    </div><button class="ref" data-jump="99">L99</button></div>
+    <div class="f-row"><div class="f-name">Location γ</div><div class="f-expr">
+      <div><i>γ</i> = <i>λ</i><sub>1</sub> − <i>αβ</i></div>
+    </div><button class="ref" data-jump="100">L100</button></div>
+    <div class="f-row"><div class="f-name">Conventional statistics</div><div class="f-expr">
+      <div><i>σ</i> = <i>β</i>√<i>α</i>, &nbsp; mean = <i>γ</i> + <i>αβ</i>, &nbsp; <i>C<sub>v</sub></i> = <span class="fr"><span><i>σ</i></span><span>mean</span></span>, &nbsp; <i>C<sub>s</sub></i> = <span class="fr"><span>2</span><span>√<i>α</i></span></span></div>
+    </div><button class="ref" data-jump="101">L101–104</button></div>
+    <div class="f-row"><div class="f-name">Flood-risk class</div><div class="f-expr">
+      <div><i>τ</i><sub>2</sub> &lt; 0.2: LOW, &nbsp; <i>τ</i><sub>2</sub> &lt; 0.5: MODERATE, &nbsp; otherwise HIGH</div>
+    </div><button class="ref" data-jump="182">L182–185</button></div>
+  </div>
+  <p class="note">The in-browser calculator below evaluates Γ(α) / Γ(α + ½) from log-gamma values. It gives the same numbers as the C++ code and does not overflow when α is above about 171.</p>
+</section>
+
+<section class="block" id="structure">
+  <h2>Program structure</h2>
+  <div class="table-wrap">
+    <table class="struct">
+      <thead><tr><th>Component</th><th>Role</th><th>Lines</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">LMomentsCalculator</th><td>Class that holds the moments and distribution parameters. <code>calculate()</code> does the arithmetic, <code>displayToConsole()</code> and <code>writeToFile()</code> format one river's report.</td><td class="mono">15–278</td></tr>
+        <tr><th scope="row">River</th><td>Class that owns one discharge series and its calculator. It sorts the series and skips the calculation for fewer than four values.</td><td class="mono">283–329</td></tr>
+        <tr><th scope="row">readRiverNamesFromFile</th><td>Reads the names file into a vector of strings and echoes the first ten names.</td><td class="mono">335–376</td></tr>
+        <tr><th scope="row">readNumericDataFromFile</th><td>Reads the numeric columns into a vector of vectors and prints the number of valid points per column.</td><td class="mono">382–441</td></tr>
+        <tr><th scope="row">main</th><td>Asks for the three file names, checks that names and columns match, builds the <code>River**</code> array with <code>new</code>, prints and saves the results, then releases the memory with <code>delete</code>.</td><td class="mono">446–678</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="try-it">
+  <h2>Run it here</h2>
+  <p>Paste river names and discharge columns in the same format the program reads, or open your two text files. Results update as you type. The values shown at first are synthetic and only show the format.</p>
+  <div class="two">
+    <div class="field">
+      <label for="names">River names, one per line</label>
+      <textarea id="names" wrap="off" spellcheck="false">Example river A - station 1
+Example river B - station 2
+Example river C - station 3</textarea>
+      <div class="toolbar"><label class="btn"><input type="file" id="namesFile" accept=".txt,text/plain">Open names file</label></div>
+    </div>
+    <div class="field">
+      <label for="data">Discharge data, one column per river (m³/s)</label>
+      <textarea id="data" wrap="off" spellcheck="false">1.72 4.86 1.78
+2.00 2.19 1.59
+2.13 6.22 2.21
+1.34 1.62 2.11
+1.82 4.80 2.13
+2.56 3.57 1.93
+2.31 2.03 2.60
+1.14 2.36 2.64
+1.88 2.83 1.68
+1.20 2.96 3.58
+1.51 2.95 2.79
+1.17 2.96 2.59
+1.50 2.16 1.86
+1.61 5.42 1.78
+2.95 3.18 2.52
+1.35 11.32 2.09
+0.98 3.11 1.88
+1.94 2.73 1.53
+1.88 5.79 2.12
+1.32 5.39 2.02
+2.12 1.45 2.45
+0.89 4.67 1.96
+1.10 7.35 2.52
+2.39 3.79 2.97
+1.67 10.49 2.34
+1.92 2.09 2.50
+2.22 4.37 1.57
+0.94 4.66 2.45
+1.97 3.49 1.81
+2.93 4.38 1.97</textarea>
+      <div class="toolbar"><label class="btn"><input type="file" id="dataFile" accept=".txt,text/plain">Open data file</label><button class="btn" id="reset" type="button">Restore example</button></div>
+    </div>
+  </div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+  <div id="summary"></div>
+  <p class="rule-note" id="ruleNote" hidden>Flood-risk class from L-Cv (t<sub>2</sub>): below 0.2 is LOW, below 0.5 is MODERATE, otherwise HIGH.</p>
+  <div id="cards"></div>
+  <details class="out" id="textOut" hidden>
+    <summary>Text output in the layout of the program's results file</summary>
+    <div class="toolbar"><button class="btn" id="copyReport" type="button">Copy text</button></div>
+    <pre class="report" id="report" tabindex="0"></pre>
+  </details>
+</section>
+
+<section class="block" id="source">
+  <h2>Source code</h2>
+  <p>The C++ source is shown unchanged, 678 lines. Use the buttons to jump to a part of it.</p>
+  <div class="chips">
+    <button class="btn" data-jump="15" type="button">LMomentsCalculator</button>
+    <button class="btn" data-jump="33" type="button">calculate()</button>
+    <button class="btn" data-jump="283" type="button">River</button>
+    <button class="btn" data-jump="335" type="button">readRiverNamesFromFile</button>
+    <button class="btn" data-jump="382" type="button">readNumericDataFromFile</button>
+    <button class="btn" data-jump="446" type="button">main</button>
+    <span class="spacer"></span>
+    <button class="btn primary" id="copyCode" type="button">Copy code</button>
+  </div>
+  <div class="code" id="code" tabindex="0" role="region" aria-label="C++ source code"><span class="code-inner" id="codeInner"></span></div>
+  <script type="text/plain" id="src-cpp">#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+#include <sstream>
+#include <cctype>
+
+// ============================================================================
+// CLASS: LMomentsCalculator
+// Purpose: Performs all L-moments calculations
+// ============================================================================
+class LMomentsCalculator {
+private:
+    double l1, l2, l3, l4;
+    double t2, t3, t4;
+    double alpha, beta, gamma_param;
+    double mean, std_dev, cv, cs;
+    double b0, b1, b2, b3;
+    double z_value;
+    double gamma_alpha, gamma_alpha_half;
+    
+public:
+    LMomentsCalculator() : l1(0), l2(0), l3(0), l4(0), t2(0), t3(0), t4(0),
+                          alpha(0), beta(0), gamma_param(0), mean(0), std_dev(0), 
+                          cv(0), cs(0), b0(0), b1(0), b2(0), b3(0),
+                          z_value(0), gamma_alpha(0), gamma_alpha_half(0) {}
+    
+    ~LMomentsCalculator() {}
+    
+    void calculate(const std::vector<double>& data) {
+        if (data.size() < 4) return;
+        
+        int n = data.size();
+        
+        double sum0 = 0, sum1 = 0, sum2 = 0, sum3 = 0;
+        
+        for (int j = 0; j < n; ++j) {
+            double xj = data[j];
+            double j_pos = j + 1;
+            
+            sum0 += xj;
+            
+            if (n > 1) {
+                sum1 += (j_pos - 1) / (n - 1) * xj;
+            }
+            if (n > 2) {
+                sum2 += (j_pos - 1) * (j_pos - 2) / ((n - 1) * (n - 2)) * xj;
+            }
+            if (n > 3) {
+                sum3 += (j_pos - 1) * (j_pos - 2) * (j_pos - 3) / 
+                        ((n - 1) * (n - 2) * (n - 3)) * xj;
+            }
+        }
+        
+        b0 = sum0 / n;
+        b1 = sum1 / n;
+        b2 = sum2 / n;
+        b3 = sum3 / n;
+        
+        l1 = b0;
+        l2 = 2 * b1 - b0;
+        l3 = 6 * b2 - 6 * b1 + b0;
+        l4 = 20 * b3 - 30 * b2 + 12 * b1 - b0;
+        
+        t2 = l2 / l1;
+        t3 = l3 / l2;
+        t4 = l4 / l2;
+        
+        double abs_t3 = std::fabs(t3);
+        
+        if (abs_t3 < 1e-6) {
+            alpha = 1000.0;
+            z_value = 0;
+        }
+        else if (abs_t3 < 1.0/3.0) {
+            z_value = 3.0 * M_PI * t3 * t3;
+            alpha = (1.0 + 0.2906 * z_value) / 
+                    (z_value + 0.1882 * z_value * z_value + 0.0442 * z_value * z_value * z_value);
+        }
+        else if (abs_t3 < 1.0) {
+            z_value = 1.0 - abs_t3;
+            alpha = (0.36067 * z_value - 0.59567 * z_value * z_value + 0.25361 * z_value * z_value * z_value) /
+                    (1.0 - 2.78861 * z_value + 2.56096 * z_value * z_value - 0.77045 * z_value * z_value * z_value);
+        }
+        else {
+            alpha = 0.01;
+            z_value = 0;
+        }
+        
+        if (alpha > 200.0) alpha = 200.0;
+        if (alpha < 0.01) alpha = 0.01;
+        
+        gamma_alpha = std::tgamma(alpha);
+        gamma_alpha_half = std::tgamma(alpha + 0.5);
+        
+        beta = l2 * gamma_alpha * std::sqrt(M_PI) / gamma_alpha_half;
+        gamma_param = l1 - alpha * beta;
+        std_dev = beta * std::sqrt(alpha);
+        mean = gamma_param + alpha * beta;
+        cv = std_dev / mean;
+        cs = std::sqrt(4.0 / alpha);
+    }
+    
+    void displayToConsole(const std::string& riverName, int n) const {
+        std::cout << "\n" << std::string(85, '=') << std::endl;
+        std::cout << "RIVER: " << riverName << std::endl;
+        std::cout << "Number of observations: n = " << n << std::endl;
+        std::cout << std::string(85, '=') << std::endl;
+        
+        std::cout << "\nL-MOMENTS:\n";
+        std::cout << std::string(85, '-') << std::endl;
+        std::cout << std::left 
+                  << std::setw(15) << "l1"
+                  << std::setw(15) << "l2"
+                  << std::setw(15) << "l3"
+                  << std::setw(15) << "l4"
+                  << std::setw(15) << "L-Cv (t2)"
+                  << std::setw(15) << "L-skew (t3)"
+                  << std::setw(15) << "L-kurt (t4)" << std::endl;
+        std::cout << std::string(85, '-') << std::endl;
+        std::cout << std::fixed << std::setprecision(4);
+        std::cout << std::left 
+                  << std::setw(15) << l1
+                  << std::setw(15) << l2
+                  << std::setw(15) << l3
+                  << std::setw(15) << l4
+                  << std::setw(15) << t2
+                  << std::setw(15) << t3
+                  << std::setw(15) << t4 << std::endl;
+        
+        std::cout << "\nPROBABILITY WEIGHTED MOMENTS:\n";
+        std::cout << std::string(85, '-') << std::endl;
+        std::cout << std::left 
+                  << std::setw(15) << "b0"
+                  << std::setw(15) << "b1"
+                  << std::setw(15) << "b2"
+                  << std::setw(15) << "b3" << std::endl;
+        std::cout << std::string(85, '-') << std::endl;
+        std::cout << std::left 
+                  << std::setw(15) << b0
+                  << std::setw(15) << b1
+                  << std::setw(15) << b2
+                  << std::setw(15) << b3 << std::endl;
+        
+        std::cout << "\nPEARSON III PARAMETERS:\n";
+        std::cout << std::string(85, '-') << std::endl;
+        std::cout << std::left 
+                  << std::setw(20) << "Parameter"
+                  << std::setw(15) << "Symbol"
+                  << std::setw(20) << "Value" << std::endl;
+        std::cout << std::string(85, '-') << std::endl;
+        std::cout << std::left 
+                  << std::setw(20) << "Shape"
+                  << std::setw(15) << "alpha"
+                  << std::setw(20) << alpha << std::endl;
+        std::cout << std::left 
+                  << std::setw(20) << "Scale"
+                  << std::setw(15) << "beta"
+                  << std::setw(20) << beta << std::endl;
+        std::cout << std::left 
+                  << std::setw(20) << "Location"
+                  << std::setw(15) << "gamma"
+                  << std::setw(20) << gamma_param << std::endl;
+        
+        std::cout << "\nCONVENTIONAL STATISTICS:\n";
+        std::cout << std::string(85, '-') << std::endl;
+        std::cout << std::left 
+                  << std::setw(20) << "Mean"
+                  << std::setw(20) << "Std Dev"
+                  << std::setw(15) << "Cv"
+                  << std::setw(15) << "Cs" << std::endl;
+        std::cout << std::string(85, '-') << std::endl;
+        std::cout << std::left 
+                  << std::setw(20) << mean
+                  << std::setw(20) << std_dev
+                  << std::setw(15) << cv
+                  << std::setw(15) << cs << std::endl;
+        
+        std::cout << "\nFLOOD RISK: ";
+        if (t2 < 0.2) std::cout << "LOW";
+        else if (t2 < 0.5) std::cout << "MODERATE";
+        else std::cout << "HIGH";
+        std::cout << std::endl;
+        std::cout << std::string(85, '=') << std::endl;
+    }
+    
+    void writeToFile(std::ofstream& outfile, const std::string& riverName, int n) const {
+        outfile << "\n" << std::string(85, '=') << std::endl;
+        outfile << "RIVER: " << riverName << std::endl;
+        outfile << "Number of observations: n = " << n << std::endl;
+        outfile << std::string(85, '=') << std::endl;
+        
+        outfile << "\nL-MOMENTS:\n";
+        outfile << std::string(85, '-') << std::endl;
+        outfile << std::left 
+                << std::setw(15) << "l1"
+                << std::setw(15) << "l2"
+                << std::setw(15) << "l3"
+                << std::setw(15) << "l4"
+                << std::setw(15) << "L-Cv (t2)"
+                << std::setw(15) << "L-skew (t3)"
+                << std::setw(15) << "L-kurt (t4)" << std::endl;
+        outfile << std::string(85, '-') << std::endl;
+        outfile << std::fixed << std::setprecision(4);
+        outfile << std::left 
+                << std::setw(15) << l1
+                << std::setw(15) << l2
+                << std::setw(15) << l3
+                << std::setw(15) << l4
+                << std::setw(15) << t2
+                << std::setw(15) << t3
+                << std::setw(15) << t4 << std::endl;
+        
+        outfile << "\nPROBABILITY WEIGHTED MOMENTS:\n";
+        outfile << std::string(85, '-') << std::endl;
+        outfile << std::left 
+                << std::setw(15) << "b0"
+                << std::setw(15) << "b1"
+                << std::setw(15) << "b2"
+                << std::setw(15) << "b3" << std::endl;
+        outfile << std::string(85, '-') << std::endl;
+        outfile << std::left 
+                << std::setw(15) << b0
+                << std::setw(15) << b1
+                << std::setw(15) << b2
+                << std::setw(15) << b3 << std::endl;
+        
+        outfile << "\nPEARSON III PARAMETERS:\n";
+        outfile << std::string(85, '-') << std::endl;
+        outfile << std::left 
+                << std::setw(20) << "Parameter"
+                << std::setw(15) << "Symbol"
+                << std::setw(20) << "Value" << std::endl;
+        outfile << std::string(85, '-') << std::endl;
+        outfile << std::left 
+                << std::setw(20) << "Shape"
+                << std::setw(15) << "alpha"
+                << std::setw(20) << alpha << std::endl;
+        outfile << std::left 
+                << std::setw(20) << "Scale"
+                << std::setw(15) << "beta"
+                << std::setw(20) << beta << std::endl;
+        outfile << std::left 
+                << std::setw(20) << "Location"
+                << std::setw(15) << "gamma"
+                << std::setw(20) << gamma_param << std::endl;
+        
+        outfile << "\nCONVENTIONAL STATISTICS:\n";
+        outfile << std::string(85, '-') << std::endl;
+        outfile << std::left 
+                << std::setw(20) << "Mean"
+                << std::setw(20) << "Std Dev"
+                << std::setw(15) << "Cv"
+                << std::setw(15) << "Cs" << std::endl;
+        outfile << std::string(85, '-') << std::endl;
+        outfile << std::left 
+                << std::setw(20) << mean
+                << std::setw(20) << std_dev
+                << std::setw(15) << cv
+                << std::setw(15) << cs << std::endl;
+        
+        outfile << "\nFLOOD RISK: ";
+        if (t2 < 0.2) outfile << "LOW";
+        else if (t2 < 0.5) outfile << "MODERATE";
+        else outfile << "HIGH";
+        outfile << std::endl;
+        outfile << std::string(85, '=') << std::endl;
+    }
+    
+    double getL1() const { return l1; }
+    double getL2() const { return l2; }
+    double getT2() const { return t2; }
+    double getT3() const { return t3; }
+    double getMean() const { return mean; }
+};
+
+// ============================================================================
+// CLASS: River
+// ============================================================================
+class River {
+private:
+    std::string name;
+    std::vector<double> dischargeData;
+    LMomentsCalculator* calculator;
+    int dataCount;
+    
+public:
+    River(const std::string& riverName, const std::vector<double>& data) 
+        : name(riverName), dischargeData(data), dataCount(data.size()) {
+        calculator = new LMomentsCalculator();
+        std::sort(dischargeData.begin(), dischargeData.end());
+        if (dataCount >= 4) {
+            calculator->calculate(dischargeData);
+        }
+        std::cout << "  [LOADED] " << name << " - " << dataCount << " points" << std::endl;
+    }
+    
+    ~River() {
+        delete calculator;
+    }
+    
+    void displayToConsole() const {
+        if (dataCount >= 4) {
+            calculator->displayToConsole(name, dataCount);
+        } else {
+            std::cout << "\nRiver: " << name << " - Insufficient data (" 
+                      << dataCount << " points, need 4+)" << std::endl;
+        }
+    }
+    
+    void writeToFile(std::ofstream& outfile) const {
+        if (dataCount >= 4) {
+            calculator->writeToFile(outfile, name, dataCount);
+        } else {
+            outfile << "\nRiver: " << name << " - Insufficient data (" 
+                    << dataCount << " points, need 4+)" << std::endl;
+        }
+    }
+    
+    std::string getName() const { return name; }
+    int getDataCount() const { return dataCount; }
+    double getMean() const { return calculator->getMean(); }
+    double getT2() const { return calculator->getT2(); }
+    double getT3() const { return calculator->getT3(); }
+    bool isValid() const { return dataCount >= 4; }
+};
+
+// ============================================================================
+// FUNCTION: readRiverNamesFromFile
+// Reads river names from a text file (one name per line)
+// ============================================================================
+bool readRiverNamesFromFile(const std::string& filename, std::vector<std::string>& riverNames) {
+    std::ifstream file(filename.c_str());
+    
+    if (!file.is_open()) {
+        std::cerr << "\nERROR: Cannot open river names file '" << filename << "'" << std::endl;
+        return false;
+    }
+    
+    std::string line;
+    int lineNum = 0;
+    
+    while (std::getline(file, line)) {
+        lineNum++;
+        
+        // Remove carriage return
+        if (!line.empty() && line[line.length()-1] == '\r') {
+            line = line.substr(0, line.length()-1);
+        }
+        
+        // Skip empty lines
+        if (line.empty()) continue;
+        
+        riverNames.push_back(line);
+    }
+    
+    file.close();
+    
+    if (riverNames.empty()) {
+        std::cerr << "\nERROR: No river names found in file '" << filename << "'" << std::endl;
+        return false;
+    }
+    
+    std::cout << "\nRead " << riverNames.size() << " river names from file:" << std::endl;
+    for (size_t i = 0; i < riverNames.size() && i < 10; ++i) {
+        std::cout << "  " << (i+1) << ". " << riverNames[i] << std::endl;
+    }
+    if (riverNames.size() > 10) {
+        std::cout << "  ... and " << (riverNames.size() - 10) << " more" << std::endl;
+    }
+    
+    return true;
+}
+
+// ============================================================================
+// FUNCTION: readNumericDataFromFile
+// Reads ONLY numeric data (columns of numbers, no headers)
+// ============================================================================
+void readNumericDataFromFile(const std::string& filename, 
+                              std::vector<std::vector<double>>& columnData) {
+    std::ifstream file(filename.c_str());
+    
+    if (!file.is_open()) {
+        std::cerr << "\nERROR: Cannot open data file '" << filename << "'" << std::endl;
+        return;
+    }
+    
+    std::string line;
+    bool firstLine = true;
+    int numColumns = 0;
+    
+    std::cout << "\nReading numeric data from: " << filename << std::endl;
+    std::cout << std::string(60, '-') << std::endl;
+    
+    while (std::getline(file, line)) {
+        if (!line.empty() && line[line.length()-1] == '\r') {
+            line = line.substr(0, line.length()-1);
+        }
+        
+        if (line.empty()) continue;
+        
+        // Replace commas with dots for decimal points
+        for (size_t i = 0; i < line.length(); ++i) {
+            if (line[i] == ',') line[i] = '.';
+        }
+        
+        std::istringstream iss(line);
+        std::vector<double> rowValues;
+        double value;
+        
+        while (iss >> value) {
+            if (value > 0) {
+                rowValues.push_back(value);
+            }
+        }
+        
+        if (firstLine) {
+            numColumns = rowValues.size();
+            columnData.resize(numColumns);
+            firstLine = false;
+            std::cout << "Detected " << numColumns << " columns of data" << std::endl;
+        }
+        
+        // Add each value to its respective column
+        for (size_t col = 0; col < rowValues.size() && col < columnData.size(); ++col) {
+            if (rowValues[col] > 0) {
+                columnData[col].push_back(rowValues[col]);
+            }
+        }
+    }
+    
+    file.close();
+    
+    std::cout << "\nData summary:" << std::endl;
+    for (size_t i = 0; i < columnData.size(); ++i) {
+        std::cout << "  Column " << (i+1) << ": " << columnData[i].size() << " valid points" << std::endl;
+    }
+}
+
+// ============================================================================
+// MAIN FUNCTION
+// ============================================================================
+int main() {
+    std::string riverNamesFile;
+    std::string dataFile;
+    std::string outputFilename;
+    std::vector<std::string> riverNames;
+    std::vector<std::vector<double>> columnData;
+    
+    std::cout << "\n";
+    std::cout << "================================================================================\n";
+    std::cout << "         L-MOMENTS METHOD FOR RIVER DISCHARGE ANALYSIS\n";
+    std::cout << "         Pearson Type III Distribution Parameters\n";
+    std::cout << "================================================================================\n";
+    
+    std::cout << "\n";
+    std::cout << "FILE FORMAT INSTRUCTIONS:\n";
+    std::cout << "--------------------------------------------------------------------------------\n";
+    std::cout << "You need to prepare TWO files:\n";
+    std::cout << "\n";
+    std::cout << "1. RIVER NAMES FILE (e.g., rivers.txt):\n";
+    std::cout << "   - One river name with station per line\n";
+    std::cout << "   - Order must match the columns in your data file\n";
+    std::cout << "   - Example:\n";
+    std::cout << "     P.Sheltozerka - S.Sheltozero\n";
+    std::cout << "     Lososinka - R.Lososinka - G.Petrozavodsk\n";
+    std::cout << "     Neglinka - R.Neglinka - G.Petrozavodsk\n";
+    std::cout << "\n";
+    std::cout << "2. DATA FILE (e.g., data.txt):\n";
+    std::cout << "   - Only numbers (space or tab separated)\n";
+    std::cout << "   - No headers, no river names\n";
+    std::cout << "   - Example:\n";
+    std::cout << "     1.31 6.02 0.72\n";
+    std::cout << "     1.45 5.06 0.70\n";
+    std::cout << "     1.05 4.14 0.47\n";
+    std::cout << "--------------------------------------------------------------------------------\n";
+    
+    // Get river names file
+    std::cout << "\nEnter the river names file name (e.g., rivers.txt): ";
+    std::getline(std::cin, riverNamesFile);
+    
+    // Get data file name
+    std::cout << "Enter the data file name (e.g., data.txt): ";
+    std::getline(std::cin, dataFile);
+    
+    // Get output file name
+    std::cout << "Enter output file name (to save results): ";
+    std::getline(std::cin, outputFilename);
+    
+    // Read river names from file
+    if (!readRiverNamesFromFile(riverNamesFile, riverNames)) {
+        std::cout << "\nERROR: Failed to read river names file!" << std::endl;
+        return 1;
+    }
+    
+    // Read numeric data from file
+    readNumericDataFromFile(dataFile, columnData);
+    
+    if (columnData.empty()) {
+        std::cout << "\nERROR: No valid data found in data file!" << std::endl;
+        return 1;
+    }
+    
+    int numRivers = riverNames.size();
+    int numColumns = columnData.size();
+    
+    if (numColumns != numRivers) {
+        std::cout << "\nWARNING: You have " << numRivers << " river names but " 
+                  << numColumns << " columns in data file." << std::endl;
+        
+        if (numColumns < numRivers) {
+            std::cout << "Using only " << numColumns << " rivers from names file." << std::endl;
+            riverNames.resize(numColumns);
+            numRivers = numColumns;
+        } else {
+            std::cout << "Extra columns in data file will be ignored." << std::endl;
+        }
+    }
+    
+    // Check if any column has less than 4 points
+    for (int i = 0; i < numRivers; ++i) {
+        if (columnData[i].size() < 4) {
+            std::cout << "\nWARNING: River '" << riverNames[i] << "' has only " 
+                      << columnData[i].size() << " points (need 4+)." << std::endl;
+        }
+    }
+    
+    // ========================================================================
+    // DYNAMIC MEMORY ALLOCATION - Array of pointers to River objects
+    // ========================================================================
+    std::cout << "\n" << std::string(85, '=') << std::endl;
+    std::cout << "CREATING RIVER OBJECTS IN DYNAMIC MEMORY" << std::endl;
+    std::cout << std::string(85, '=') << std::endl;
+    
+    River** rivers = new River*[numRivers];
+    
+    for (int i = 0; i < numRivers; ++i) {
+        rivers[i] = nullptr;
+    }
+    
+    // Create River objects
+    for (int i = 0; i < numRivers; ++i) {
+        if (columnData[i].size() >= 4) {
+            rivers[i] = new River(riverNames[i], columnData[i]);
+        } else {
+            std::cout << "  [SKIPPED] " << riverNames[i] << " - only " 
+                      << columnData[i].size() << " points" << std::endl;
+        }
+    }
+    
+    // ========================================================================
+    // DISPLAY RESULTS TO CONSOLE
+    // ========================================================================
+    std::cout << "\n" << std::string(85, '=') << std::endl;
+    std::cout << "ANALYSIS RESULTS" << std::endl;
+    std::cout << std::string(85, '=') << std::endl;
+    
+    for (int i = 0; i < numRivers; ++i) {
+        if (rivers[i] != nullptr) {
+            rivers[i]->displayToConsole();
+        }
+    }
+    
+    // ========================================================================
+    // SUMMARY TABLE WITH RIVER NAMES AND STATION INFORMATION
+    // ========================================================================
+    std::cout << "\n" << std::string(85, '=') << std::endl;
+    std::cout << "SUMMARY TABLE" << std::endl;
+    std::cout << std::string(85, '=') << std::endl;
+    std::cout << std::left 
+              << std::setw(40) << "River Name and Station"
+              << std::setw(12) << "Points"
+              << std::setw(18) << "Mean (m3/s)"
+              << std::setw(15) << "L-Cv (t2)"
+              << std::setw(15) << "L-skew (t3)" << std::endl;
+    std::cout << std::string(85, '-') << std::endl;
+    
+    for (int i = 0; i < numRivers; ++i) {
+        if (rivers[i] != nullptr && rivers[i]->isValid()) {
+            std::string shortName = rivers[i]->getName();
+            if (shortName.length() > 38) {
+                shortName = shortName.substr(0, 35) + "...";
+            }
+            std::cout << std::left 
+                      << std::setw(40) << shortName
+                      << std::setw(12) << rivers[i]->getDataCount()
+                      << std::setw(18) << std::fixed << std::setprecision(2) 
+                      << rivers[i]->getMean()
+                      << std::setw(15) << std::setprecision(6)
+                      << rivers[i]->getT2()
+                      << std::setw(15) << rivers[i]->getT3() << std::endl;
+        } else if (rivers[i] == nullptr && columnData[i].size() > 0) {
+            std::string shortName = riverNames[i];
+            if (shortName.length() > 38) {
+                shortName = shortName.substr(0, 35) + "...";
+            }
+            std::cout << std::left 
+                      << std::setw(40) << shortName
+                      << std::setw(12) << columnData[i].size()
+                      << std::setw(18) << "INSUFFICIENT"
+                      << std::setw(15) << "-"
+                      << std::setw(15) << "-" << std::endl;
+        }
+    }
+    std::cout << std::string(85, '=') << std::endl;
+    
+    // ========================================================================
+    // SAVE RESULTS TO FILE
+    // ========================================================================
+    std::ofstream outfile(outputFilename.c_str());
+    if (!outfile.is_open()) {
+        std::cerr << "\nERROR: Cannot create output file '" << outputFilename << "'" << std::endl;
+    } else {
+        outfile << "================================================================================\n";
+        outfile << "         L-MOMENTS METHOD FOR RIVER DISCHARGE ANALYSIS\n";
+        outfile << "         Pearson Type III Distribution Parameters\n";
+        outfile << "================================================================================\n";
+        outfile << "\nRiver names file: " << riverNamesFile << std::endl;
+        outfile << "Data file: " << dataFile << std::endl;
+        outfile << "Number of rivers: " << numRivers << std::endl;
+        
+        for (int i = 0; i < numRivers; ++i) {
+            if (rivers[i] != nullptr) {
+                rivers[i]->writeToFile(outfile);
+            }
+        }
+        
+        outfile << "\n" << std::string(85, '=') << std::endl;
+        outfile << "SUMMARY TABLE" << std::endl;
+        outfile << std::string(85, '=') << std::endl;
+        outfile << std::left 
+                << std::setw(50) << "River Name and Station"
+                << std::setw(12) << "Points"
+                << std::setw(18) << "Mean (m3/s)"
+                << std::setw(15) << "L-Cv (t2)"
+                << std::setw(15) << "L-skew (t3)" << std::endl;
+        outfile << std::string(85, '-') << std::endl;
+        
+        for (int i = 0; i < numRivers; ++i) {
+            if (rivers[i] != nullptr && rivers[i]->isValid()) {
+                outfile << std::left 
+                        << std::setw(50) << rivers[i]->getName()
+                        << std::setw(12) << rivers[i]->getDataCount()
+                        << std::setw(18) << std::fixed << std::setprecision(2) 
+                        << rivers[i]->getMean()
+                        << std::setw(15) << std::setprecision(6)
+                        << rivers[i]->getT2()
+                        << std::setw(15) << rivers[i]->getT3() << std::endl;
+            } else if (rivers[i] == nullptr && columnData[i].size() > 0) {
+                outfile << std::left 
+                        << std::setw(50) << riverNames[i]
+                        << std::setw(12) << columnData[i].size()
+                        << std::setw(18) << "INSUFFICIENT DATA"
+                        << std::setw(15) << "-"
+                        << std::setw(15) << "-" << std::endl;
+            }
+        }
+        outfile << std::string(85, '=') << std::endl;
+        
+        outfile.close();
+        std::cout << "\nResults successfully saved to: " << outputFilename << std::endl;
+    }
+    
+    // ========================================================================
+    // CLEAN UP DYNAMIC MEMORY
+    // ========================================================================
+    for (int i = 0; i < numRivers; ++i) {
+        delete rivers[i];
+    }
+    delete[] rivers;
+    
+    std::cout << "\nProgram completed successfully!\n";
+    
+    return 0;
+}</script>
+</section>
+
+<section class="block" id="references">
+  <h2>References</h2>
+  <ol class="refs">
+    <li>Hosking, J. R. M. (1990). L-moments: analysis and estimation of distributions using linear combinations of order statistics. <em>Journal of the Royal Statistical Society, Series B</em>, 52(1), 105–124.</li>
+    <li>Hosking, J. R. M., and Wallis, J. R. (1997). <em>Regional Frequency Analysis: An Approach Based on L-moments.</em> Cambridge University Press.</li>
+  </ol>
+</section>
+
+<footer>
+  <p>The calculator on this page runs in your browser and does not send data anywhere. For the synthetic example data, its text output was compared with the results file written by the compiled C++ program and the two were identical.</p>
+</footer>
+</div>
+
+<script>
+/* Browser port of the C++ LMomentsCalculator, River and file-reading logic. */
+var Core = (function () {
+  'use strict';
+
+  var LANCZOS = [
+    0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61502916214059, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7
+  ];
+
+  // Natural log of the gamma function. Used for the ratio
+  // Gamma(alpha) / Gamma(alpha + 0.5) so that large alpha does not overflow.
+  function lgamma(x) {
+    if (x < 0.5) {
+      return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lgamma(1 - x);
+    }
+    x -= 1;
+    var a = LANCZOS[0];
+    var t = x + 7.5;
+    for (var i = 1; i < 9; i++) a += LANCZOS[i] / (x + i);
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+  }
+
+  // data must be sorted ascending (the River constructor sorts before calling).
+  function analyse(data) {
+    var n = data.length;
+    if (n < 4) return null;
+
+    var s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+    for (var j = 0; j < n; j++) {
+      var xj = data[j];
+      var p = j + 1;
+      s0 += xj;
+      s1 += (p - 1) / (n - 1) * xj;
+      s2 += (p - 1) * (p - 2) / ((n - 1) * (n - 2)) * xj;
+      s3 += (p - 1) * (p - 2) * (p - 3) / ((n - 1) * (n - 2) * (n - 3)) * xj;
+    }
+    var b0 = s0 / n, b1 = s1 / n, b2 = s2 / n, b3 = s3 / n;
+
+    var l1 = b0;
+    var l2 = 2 * b1 - b0;
+    var l3 = 6 * b2 - 6 * b1 + b0;
+    var l4 = 20 * b3 - 30 * b2 + 12 * b1 - b0;
+
+    var t2 = l2 / l1;
+    var t3 = l3 / l2;
+    var t4 = l4 / l2;
+
+    var abs3 = Math.abs(t3);
+    var alpha, z;
+    if (abs3 < 1e-6) {
+      alpha = 1000.0;
+    } else if (abs3 < 1.0 / 3.0) {
+      z = 3.0 * Math.PI * t3 * t3;
+      alpha = (1.0 + 0.2906 * z) / (z + 0.1882 * z * z + 0.0442 * z * z * z);
+    } else if (abs3 < 1.0) {
+      z = 1.0 - abs3;
+      alpha = (0.36067 * z - 0.59567 * z * z + 0.25361 * z * z * z) /
+              (1.0 - 2.78861 * z + 2.56096 * z * z - 0.77045 * z * z * z);
+    } else {
+      alpha = 0.01;
+    }
+    if (alpha > 200.0) alpha = 200.0;
+    if (alpha < 0.01) alpha = 0.01;
+
+    var beta = l2 * Math.sqrt(Math.PI) * Math.exp(lgamma(alpha) - lgamma(alpha + 0.5));
+    var gamma = l1 - alpha * beta;
+    var sd = beta * Math.sqrt(alpha);
+    var mean = gamma + alpha * beta;
+    var cv = sd / mean;
+    var cs = Math.sqrt(4.0 / alpha);
+    var risk = t2 < 0.2 ? 'LOW' : (t2 < 0.5 ? 'MODERATE' : 'HIGH');
+
+    return {
+      n: n, b0: b0, b1: b1, b2: b2, b3: b3,
+      l1: l1, l2: l2, l3: l3, l4: l4, t2: t2, t3: t3, t4: t4,
+      alpha: alpha, beta: beta, gamma: gamma,
+      sd: sd, mean: mean, cv: cv, cs: cs, risk: risk,
+      min: data[0], max: data[n - 1]
+    };
+  }
+
+  // One name per line; carriage returns removed; empty lines skipped.
+  function parseNames(text) {
+    var out = [];
+    text.split('\n').forEach(function (raw) {
+      var line = raw.replace(/\r$/, '');
+      if (line.length > 0) out.push(line);
+    });
+    return out;
+  }
+
+  var NUM = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+  // Columns of numbers. Commas become dots, values <= 0 are dropped, the first
+  // non-empty line fixes the number of columns (same rules as the C++ reader).
+  function parseData(text) {
+    var cols = [];
+    var first = true;
+    text.split('\n').forEach(function (raw) {
+      var line = raw.replace(/\r$/, '');
+      if (line.length === 0) return;
+      line = line.replace(/,/g, '.');
+      var row = [];
+      var toks = line.split(/\s+/);
+      for (var i = 0; i < toks.length; i++) {
+        if (toks[i] === '') continue;
+        if (!NUM.test(toks[i])) break;
+        var v = parseFloat(toks[i]);
+        if (v > 0) row.push(v);
+      }
+      if (first) {
+        cols = [];
+        for (var c = 0; c < row.length; c++) cols.push([]);
+        first = false;
+      }
+      for (var k = 0; k < row.length && k < cols.length; k++) cols[k].push(row[k]);
+    });
+    return cols;
+  }
+
+  function fx(x, d) {
+    if (typeof x !== 'number' || !isFinite(x)) return isNaN(x) ? 'nan' : (x < 0 ? '-inf' : 'inf');
+    return x.toFixed(d);
+  }
+  function pad(s, w) { return String(s).padEnd(w, ' '); }
+  function rep(ch, n) { return new Array(n + 1).join(ch); }
+
+  // Same layout as LMomentsCalculator::writeToFile.
+  function riverText(name, r) {
+    var eq = rep('=', 85), dash = rep('-', 85);
+    var f = function (x) { return fx(x, 4); };
+    var L = [
+      '', eq, 'RIVER: ' + name, 'Number of observations: n = ' + r.n, eq,
+      '', 'L-MOMENTS:', dash,
+      pad('l1', 15) + pad('l2', 15) + pad('l3', 15) + pad('l4', 15) +
+        pad('L-Cv (t2)', 15) + pad('L-skew (t3)', 15) + pad('L-kurt (t4)', 15),
+      dash,
+      [r.l1, r.l2, r.l3, r.l4, r.t2, r.t3, r.t4].map(function (v) { return pad(f(v), 15); }).join(''),
+      '', 'PROBABILITY WEIGHTED MOMENTS:', dash,
+      pad('b0', 15) + pad('b1', 15) + pad('b2', 15) + pad('b3', 15),
+      dash,
+      [r.b0, r.b1, r.b2, r.b3].map(function (v) { return pad(f(v), 15); }).join(''),
+      '', 'PEARSON III PARAMETERS:', dash,
+      pad('Parameter', 20) + pad('Symbol', 15) + pad('Value', 20),
+      dash,
+      pad('Shape', 20) + pad('alpha', 15) + pad(f(r.alpha), 20),
+      pad('Scale', 20) + pad('beta', 15) + pad(f(r.beta), 20),
+      pad('Location', 20) + pad('gamma', 15) + pad(f(r.gamma), 20),
+      '', 'CONVENTIONAL STATISTICS:', dash,
+      pad('Mean', 20) + pad('Std Dev', 20) + pad('Cv', 15) + pad('Cs', 15),
+      dash,
+      pad(f(r.mean), 20) + pad(f(r.sd), 20) + pad(f(r.cv), 15) + pad(f(r.cs), 15),
+      '', 'FLOOD RISK: ' + r.risk, eq
+    ];
+    return L.join('\n') + '\n';
+  }
+
+  // Same layout as the summary table written to the results file.
+  // items: [{name, n, res}] where res is null when there are fewer than 4 points.
+  function summaryText(items) {
+    var eq = rep('=', 85), dash = rep('-', 85);
+    var L = [
+      '', eq, 'SUMMARY TABLE', eq,
+      pad('River Name and Station', 50) + pad('Points', 12) + pad('Mean (m3/s)', 18) +
+        pad('L-Cv (t2)', 15) + pad('L-skew (t3)', 15),
+      dash
+    ];
+    items.forEach(function (it) {
+      if (it.res) {
+        L.push(pad(it.name, 50) + pad(it.n, 12) + pad(fx(it.res.mean, 2), 18) +
+               pad(fx(it.res.t2, 6), 15) + pad(fx(it.res.t3, 6), 15));
+      } else if (it.n > 0) {
+        L.push(pad(it.name, 50) + pad(it.n, 12) + pad('INSUFFICIENT DATA', 18) +
+               pad('-', 15) + pad('-', 15));
+      }
+    });
+    L.push(eq);
+    return L.join('\n') + '\n';
+  }
+
+  return {
+    lgamma: lgamma, analyse: analyse, parseNames: parseNames, parseData: parseData,
+    riverText: riverText, summaryText: summaryText, fx: fx
+  };
+})();
+
+if (typeof module !== 'undefined' && module.exports) module.exports = Core;
+
+</script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var fx = Core.fx;
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function reduced() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+  }
+
+  /* ---------- copy helper ---------- */
+  function copyText(text, btn) {
+    var label = btn.textContent;
+    var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = label; }, 1600); };
+    var fallback = function () {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) { done(); return; }
+      } catch (e) { /* fall through */ }
+      btn.textContent = 'Select the text and copy it';
+      setTimeout(function () { btn.textContent = label; }, 2500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  /* ---------- results ---------- */
+  function pill(risk) {
+    return '<span class="pill risk-' + risk.toLowerCase() + '">' + risk + '</span>';
+  }
+  function cell(k, hint, v) {
+    return '<div class="cell"><div class="k">' + k + (hint ? '<small>' + hint + '</small>' : '') + '</div><div class="v">' + v + '</div></div>';
+  }
+  function strip(sorted, r) {
+    var span = r.max - r.min;
+    var dots = sorted.map(function (v) {
+      var p = span > 0 ? (v - r.min) / span * 100 : 50;
+      return '<i style="left:' + p.toFixed(2) + '%"></i>';
+    }).join('');
+    var mp = span > 0 ? (r.l1 - r.min) / span * 100 : 50;
+    return '<figure class="strip" role="img" aria-label="Sorted values from ' + fx(r.min, 2) + ' to ' + fx(r.max, 2) + ', mean ' + fx(r.l1, 2) + '">' +
+      '<div class="track">' + dots + '<b style="left:' + mp.toFixed(2) + '%"></b></div>' +
+      '<figcaption><span>min ' + fx(r.min, 2) + '</span><span>mean ' + fx(r.l1, 2) + '</span><span>max ' + fx(r.max, 2) + '</span></figcaption></figure>';
+  }
+  function card(it) {
+    var r = it.res, f = function (x) { return fx(x, 4); };
+    return '<article class="river">' +
+      '<div class="river-head"><h3>' + esc(it.name) + '</h3>' + pill(r.risk) + '</div>' +
+      '<p class="sub">n = ' + r.n + ' observations. Dots are the sorted values in m³/s, the bar marks the mean.</p>' +
+      strip(it.sorted, r) +
+      '<div class="groups">' +
+        '<section class="wide"><h4>L-moments</h4><div class="cells">' +
+          cell('l<sub>1</sub>', '', f(r.l1)) + cell('l<sub>2</sub>', '', f(r.l2)) +
+          cell('l<sub>3</sub>', '', f(r.l3)) + cell('l<sub>4</sub>', '', f(r.l4)) +
+          cell('t<sub>2</sub>', 'L-Cv', f(r.t2)) + cell('t<sub>3</sub>', 'L-skew', f(r.t3)) +
+          cell('t<sub>4</sub>', 'L-kurtosis', f(r.t4)) +
+        '</div></section>' +
+        '<section><h4>Probability-weighted moments</h4><div class="cells">' +
+          cell('b<sub>0</sub>', '', f(r.b0)) + cell('b<sub>1</sub>', '', f(r.b1)) +
+          cell('b<sub>2</sub>', '', f(r.b2)) + cell('b<sub>3</sub>', '', f(r.b3)) +
+        '</div></section>' +
+        '<section><h4>Pearson III parameters</h4><div class="cells">' +
+          cell('α', 'shape', f(r.alpha)) + cell('β', 'scale', f(r.beta)) + cell('γ', 'location', f(r.gamma)) +
+        '</div></section>' +
+        '<section><h4>Conventional statistics</h4><div class="cells">' +
+          cell('Mean', 'm³/s', f(r.mean)) + cell('Std dev', 'm³/s', f(r.sd)) +
+          cell('C<sub>v</sub>', '', f(r.cv)) + cell('C<sub>s</sub>', '', f(r.cs)) +
+        '</div></section>' +
+      '</div></article>';
+  }
+  function summaryTable(items) {
+    var rows = items.map(function (it) {
+      if (it.res) {
+        var r = it.res;
+        return '<tr><th scope="row">' + esc(it.name) + '</th><td class="num">' + it.n + '</td><td class="num">' + fx(r.mean, 2) +
+          '</td><td class="num">' + fx(r.t2, 4) + '</td><td class="num">' + fx(r.t3, 4) + '</td><td>' + pill(r.risk) + '</td></tr>';
+      }
+      if (it.n > 0) {
+        return '<tr><th scope="row">' + esc(it.name) + '</th><td class="num">' + it.n + '</td><td colspan="4" class="muted">Insufficient data, at least 4 points are needed</td></tr>';
+      }
+      return '';
+    }).join('');
+    return '<div class="table-wrap"><table><thead><tr><th>River and station</th><th class="num">Points</th><th class="num">Mean (m³/s)</th>' +
+      '<th class="num">L-Cv (t<sub>2</sub>)</th><th class="num">L-skew (t<sub>3</sub>)</th><th>Flood risk</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  var reportText = '';
+
+  function clearOutput() {
+    $('summary').innerHTML = '';
+    $('cards').innerHTML = '';
+    $('ruleNote').hidden = true;
+    $('textOut').hidden = true;
+    reportText = '';
+  }
+
+  function render() {
+    var names = Core.parseNames($('names').value);
+    var cols = Core.parseData($('data').value);
+    var status = $('status');
+    var warnings = [];
+
+    if (!names.length) {
+      clearOutput();
+      status.innerHTML = '<span class="err">Add at least one river name, one per line.</span>';
+      return;
+    }
+    if (!cols.length) {
+      clearOutput();
+      status.innerHTML = '<span class="err">No numbers found in the data box. Enter one column of discharge values per river.</span>';
+      return;
+    }
+
+    var nNames = names.length, nCols = cols.length;
+    if (nCols !== nNames) {
+      if (nCols < nNames) {
+        warnings.push('There are ' + nNames + ' river names but ' + nCols + ' data columns. Only the first ' + nCols + ' names are used.');
+        names = names.slice(0, nCols);
+      } else {
+        warnings.push('There are ' + nNames + ' river names but ' + nCols + ' data columns. Extra columns are ignored.');
+      }
+    }
+
+    var items = names.map(function (nm, i) {
+      var sorted = cols[i].slice().sort(function (a, b) { return a - b; });
+      var res = Core.analyse(sorted);
+      if (!res) warnings.push('"' + nm + '" has only ' + sorted.length + ' points. At least 4 are needed.');
+      return { name: nm, n: sorted.length, sorted: sorted, res: res };
+    });
+
+    status.innerHTML = 'Read ' + names.length + ' river' + (names.length === 1 ? '' : 's') + '.' +
+      (warnings.length ? '<ul>' + warnings.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' : '');
+
+    $('summary').innerHTML = summaryTable(items);
+    $('ruleNote').hidden = false;
+    $('cards').innerHTML = items.filter(function (it) { return it.res; }).map(card).join('');
+
+    var text = '';
+    items.forEach(function (it) { if (it.res) text += Core.riverText(it.name, it.res); });
+    text += Core.summaryText(items);
+    reportText = text;
+    $('report').textContent = text;
+    $('textOut').hidden = false;
+  }
+
+  /* ---------- inputs ---------- */
+  var timer = null;
+  function schedule() { clearTimeout(timer); timer = setTimeout(render, 150); }
+  $('names').addEventListener('input', schedule);
+  $('data').addEventListener('input', schedule);
+
+  var namesDefault = $('names').defaultValue, dataDefault = $('data').defaultValue;
+  $('reset').addEventListener('click', function () {
+    $('names').value = namesDefault;
+    $('data').value = dataDefault;
+    render();
+  });
+  function bindFile(inputId, targetId) {
+    $(inputId).addEventListener('change', function (e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () { $(targetId).value = String(reader.result); render(); };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+  }
+  bindFile('namesFile', 'names');
+  bindFile('dataFile', 'data');
+  $('copyReport').addEventListener('click', function () { copyText(reportText, this); });
+
+  /* ---------- source viewer ---------- */
+  var KW = {};
+  ('class private public const void int double bool if else for while return new delete nullptr true false ' +
+   'using namespace struct static char auto this size_t').split(' ').forEach(function (k) { KW[k] = 1; });
+  var TOK = /(\/\/.*$)|(#include.*$)|("(?:\\.|[^"\\])*")|('(?:\\.|[^'\\])*')|(\b\d+(?:\.\d+)?(?:e-?\d+)?\b)|(\b[A-Za-z_]\w*\b)/g;
+  function highlight(line) {
+    var out = '', last = 0, m;
+    TOK.lastIndex = 0;
+    while ((m = TOK.exec(line))) {
+      out += esc(line.slice(last, m.index));
+      var t = m[0], cls = null;
+      if (m[1]) cls = 'c-com';
+      else if (m[2]) cls = 'c-pre';
+      else if (m[3] || m[4]) cls = 'c-str';
+      else if (m[5]) cls = 'c-num';
+      else if (KW[t]) cls = 'c-kw';
+      out += cls ? '<span class="' + cls + '">' + esc(t) + '</span>' : esc(t);
+      last = m.index + t.length;
+    }
+    return out + esc(line.slice(last));
+  }
+  var source = $('src-cpp').textContent.replace(/\r/g, '').replace(/^\n/, '');
+  $('codeInner').innerHTML = source.split('\n').map(function (line, i) {
+    return '<span class="ln" data-n="' + (i + 1) + '">' + highlight(line) + '</span>';
+  }).join('');
+  $('copyCode').addEventListener('click', function () { copyText(source, this); });
+
+  function jump(n) {
+    var code = $('code');
+    var el = code.querySelector('[data-n="' + n + '"]');
+    if (!el) return;
+    $('source').scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' });
+    code.scrollTop = Math.max(0, el.offsetTop - 12);
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-jump]'), function (b) {
+    b.addEventListener('click', function () { jump(b.getAttribute('data-jump')); });
+  });
+
+  render();
+})();
+
+</script>
